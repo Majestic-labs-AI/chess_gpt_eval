@@ -615,9 +615,8 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["stockfish_16layers_ckpt_no_optimizer.pt"]
-player_ones = ["gpt-3.5-turbo-instruct"]
-player_two_recording_name = "stockfish_sweep"
+player_ones = ["Llama-3.1-8B-Instruct"]
+player_two_recording_name = "Llama-3.1-8B-Instruct"
 if __name__ == "__main__":
     for player in player_ones:
         player_one_recording_name = player

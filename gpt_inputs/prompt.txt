@@ -1,3 +1,0 @@
-[White "Magnus Carlsen"]
-[Black "Stockfish"]
-
