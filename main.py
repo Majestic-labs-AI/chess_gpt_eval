@@ -6,6 +6,9 @@ import csv
 import random
 import time
 import platform
+import re
+import requests
+import json
 
 # NOTE: LLAMA AND NANOGPT ARE EXPERIMENTAL PLAYERS that most people won't need to use
 # They are commented by default to avoid unnecessary dependencies such as pytorch.
@@ -15,6 +18,12 @@ import gpt_query
 
 from typing import Optional, Tuple
 from dataclasses import dataclass
+
+
+class ModelPort:
+    def __init__(self, port, model):
+        self.port = port
+        self.model = model
 
 
 @dataclass
@@ -46,6 +55,90 @@ class GPTPlayer(Player):
     ) -> Optional[str]:
         response = get_gpt_response(game_state, self.model, temperature)
         return get_move_from_gpt_response(response)
+
+    def get_config(self) -> dict:
+        return {"model": self.model}
+
+
+class LLMPlayer(Player):
+    def __init__(self, model_port: ModelPort, role):
+        self.model = model_port.model
+        self.port = model_port.port
+        self.role = role
+
+    def get_move(self, board: chess.Board, game_state: str, temperature: float
+                 ) -> Optional[str]:
+        # Create a prompt describing the current field state and requesting a smart hop
+        messages = [
+            {"role": "system", "content": "You are a chess engine. Respond only with a valid UCI move."},
+            {
+                "role": "user",
+                "content": f"""You are playing a chess game as {self.role}.
+                 Current board position (FEN): {board.fen()}
+                 Choose one of the following legal moves: {[move.uci() for move in board.legal_moves]}
+                 Provide your next move in UCI format (e.g., 'e2e4'). Only provide the move."""
+            }
+        ]
+
+        print(f"{board.fen()}")
+        print(f"{[move.uci() for move in board.legal_moves]}")
+        request_data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": 256,
+            # "stream": True
+        }
+
+        # print("\n=== HTTP Request Details ===")
+        # print(f"URL: {model_config['url']}")
+        # print(f"Model: {model_config['name']}")
+        # print("Method: POST")
+        # print("Headers: {'Content-Type': 'application/json'}")
+        # print("Request Body:")
+        # print(json.dumps(request_data, indent=2))
+        # print("========================\n")
+
+        print(f"{self.role.upper()}, played by {
+              self.model}, is thinking...")
+
+        response = requests.post(
+            f"http://127.0.0.1:{self.port}/v1/chat/completions",
+            json=request_data,
+            headers={"Content-Type": "application/json"},
+        )
+        print(
+            f"---> response.status_code: «{response.status_code}» response.text «{response.text}»")
+        if response.status_code == 200:
+            chess_move_uci = ""
+            response_content = ""
+            # for line in response.content:
+            #     if line:
+            # Decode the line and remove "data: " prefix
+            line_text = response.text.strip()
+            if line_text.startswith('data: '):
+                line_text = line_text[6:]
+                print(
+                    f"---> LLM's raw JSON response: «{line_text}»")
+            try:
+                response_object = json.loads(line_text)
+                # STANDARD COMPLETION format
+                # {"id":"chat-bca2f503772249199b4e5762c0172eb9","object":"chat.completion","created":1731018756,"model":"Llama-3.1-8B","choices":[{"index":0,"message":{"role":"assistant","content":"e7e5","tool_calls":[]},"logprobs":null,"finish_reason":"stop","stop_reason":null}],"usage":{"prompt_tokens":240,"total_tokens":245,"completion_tokens":5},"prompt_logprobs":null}
+                # if chunk.get('choices') and chunk['choices'][0].get('message',{}).get('content'):
+                #     content = chunk['choices'][0].get('message',{}).get('content')
+                # STREAMING MODE format
+                # if chunk.get('choices') and chunk['choices'][0].get('delta', {}).get('content'):
+                #     content = chunk['choices'][0].get('delta', {}).get('content')
+                if response_object.get('choices') and response_object['choices'][0].get('message', {}).get('content'):
+                    response_content = response_object['choices'][0].get(
+                        'message', {}).get('content')
+            except json.JSONDecodeError:
+                print("BAD JSON!")
+            match = re.search(r'[a-h][1-8][a-h][1-8]', response_content)
+            chess_move_uci = match.group(0) if match else ""
+            print(
+                f"---> chess_move_uci: «{chess_move_uci}», response_content: «{response_content}»")
+            return chess_move_uci
 
     def get_config(self) -> dict:
         return {"model": self.model}
@@ -93,7 +186,8 @@ class StockfishPlayer(Player):
 
         else:
             self._engine.configure({"Skill Level": self._skill_level})
-            result = self._engine.play(board, chess.engine.Limit(time=self._play_time))
+            result = self._engine.play(
+                board, chess.engine.Limit(time=self._play_time))
         if result.move is None:
             return None
         return board.san(result.move)
@@ -372,7 +466,8 @@ def initialize_game_with_random_moves(
                 if moveIdx > 1 or player == 1:
                     game_state += " "
                 game_state += (
-                    str(moveIdx) + ". " + moveString if player == 0 else moveString
+                    str(moveIdx) + ". " +
+                    moveString if player == 0 else moveString
                 )
                 board.push(move)
 
@@ -384,7 +479,8 @@ def initialize_game_with_random_moves(
             break
     else:
         # If the loop completes without a break, raise an error
-        raise Exception("Failed to initialize the game after maximum attempts.")
+        raise Exception(
+            "Failed to initialize the game after maximum attempts.")
 
     print(game_state)
     return game_state, board
@@ -505,12 +601,20 @@ def play_game(
         # print(game_state)
 
 
+l_8B_instruct = ModelPort(8080, "Llama-3.1-8B-Instruct")
+l_70B_instruct = ModelPort(8082, "Llama-3.1-70B-Instruct")
+l_405B_instruct = ModelPort(8084, "Llama-3.1-405B-Instruct")
+l_3B_instruct = ModelPort(8085, "Llama-3.2-3B-Instruct")
+l_11B_instruct = ModelPort(8087, "Llama-3.2-11B-Instruct")
+l_90B_instruct = ModelPort(8088, "Llama-3.2-90B-Vision-Instruct")
+
 NANOGPT = False
 RUN_FOR_ANALYSIS = True
 MAX_MOVES = 1000
 if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
-recording_file = "logs/determine.csv"  # default recording file. Because we are using list [player_ones], recording_file is overwritten
+# default recording file. Because we are using list [player_ones], recording_file is overwritten
+recording_file = "logs/determine.csv"
 player_ones = ["stockfish_16layers_ckpt_no_optimizer.pt"]
 player_ones = ["gpt-3.5-turbo-instruct"]
 player_two_recording_name = "stockfish_sweep"
@@ -519,11 +623,13 @@ if __name__ == "__main__":
         player_one_recording_name = player
         for i in range(11):
             num_games = 100
-            player_one = GPTPlayer(model=player)
+            # player_one = GPTPlayer(model=player)
+            player_one = LLMPlayer(l_8B_instruct, role="white")
+            player_two = LLMPlayer(l_8B_instruct, role="black")
             # player_one = GPTPlayer(model="gpt-4")
             # player_one = StockfishPlayer(skill_level=-1, play_time=0.1)
             # player_one = NanoGptPlayer(model_name=player_one_recording_name)
-            player_two = StockfishPlayer(skill_level=i, play_time=0.1)
+            # player_two = StockfishPlayer(skill_level=i, play_time=0.1)
             # player_two = GPTPlayer(model="gpt-4")
             # player_two = GPTPlayer(model="gpt-3.5-turbo-instruct")
 
