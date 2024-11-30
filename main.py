@@ -134,8 +134,9 @@ NEVER explain your choice.
                         'message', {}).get('content')
             except json.JSONDecodeError:
                 print("BAD JSON!")
-            match = re.search(r'[a-h][1-8][a-h][1-8]', response_content)
-            chess_move_uci = match.group(0) if match else ""
+            match = re.findall(r'[a-h][1-8][a-h][1-8]',
+                               response_content, re.MULTILINE)
+            chess_move_uci = match[-1] if match else ""
             print(
                 f"---> chess_move_uci: «{chess_move_uci}», response_content: «{response_content}»")
             return chess_move_uci
