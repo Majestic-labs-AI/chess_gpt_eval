@@ -75,7 +75,7 @@ class LLMPlayer(Player):
             {"role": "user", "content": f"""You are a chess master.
 You will be given a partially completed game.
 After seeing it, you should choose the next move.
-Use UCI notation, e.g. "e2e4" or "b8c6" or "e7e8q".
+Use standard algebraic notation, e.g. "e4" or "Rdf8" or "R1a3".
 You are the {self.role} player.
 Current board position under Forsyth-Edwards Notation (FEN): {board.fen()}.
 NEVER explain your choice.
@@ -134,12 +134,13 @@ NEVER explain your choice.
                         'message', {}).get('content')
             except json.JSONDecodeError:
                 print("BAD JSON!")
-            match = re.findall(r'[a-h][1-8][a-h][1-8]',
-                               response_content, re.MULTILINE)
-            chess_move_uci = match[-1] if match else ""
+            # match = re.findall(r'[a-h][1-8][a-h][1-8]',
+            #                    response_content, re.MULTILINE)
+            # chess_move_uci = match[-1] if match else ""
+            chess_move_agn = response_content
             print(
-                f"---> chess_move_uci: «{chess_move_uci}», response_content: «{response_content}»")
-            return chess_move_uci
+                f"---> chess_move_agn: «{chess_move_agn}», response_content: «{response_content}»")
+            return chess_move_agn
 
     def get_config(self) -> dict:
         return {"model": self.model}
@@ -616,7 +617,7 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["Llama-3.2-3B-Instruct-v00"]
+player_ones = ["Llama-3.2-3B-Instruct-v01"]
 player_two_recording_name = "stockfish"
 if __name__ == "__main__":
     for player in player_ones:
