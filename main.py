@@ -68,263 +68,20 @@ class LLMPlayer(Player):
 
     def get_move(self, board: chess.Board, game_state: str, temperature: float
                  ) -> Optional[str]:
-        # Create a prompt describing the current field state and requesting a smart hop
-        long_messages = [
-            {"role": "system", "content": "You are a master chess player."},
-            {"role": "user", "content": f"""You are resuming a partially-completed chess game as {self.role}.
-             Before playing the game, carefully go through the three well-plotted match examples. Each move is annotated by starting square and ending square (without separation).
-             E.g., In the first line of Game 1, a move 'e2e4' denotes the P (Pawn) which locates at the square 'e2'
-             is moving to the new square 'e4'. The content 'P moves from e2 to e4' after ':' are comments. A more concise comment is 'P e2 -> e4', or simply 'P'
-             For each move resulting in 'check' and/or 'killing', please trace back 6 preceding moves to grasp the underlying forward-thinking strategy.
-
-            Game 1.
-            White, e2e4: P moves from e2 to e4
-            Black, d7d6: P moves from d7 to d6
-            White, d2d4: P moves from d2 to d4
-            Black, g8f6: N moves from g8 to f6
-            White, b1c3: N moves from b1 to c3
-            Black, g7g6: P g7 -> g6
-            White, c1e3: B c1 -> e3
-            Black, f8g7: B f8 -> g7
-            White, d1d2: Q d1 -> d2
-            Black, c7c6: P c7 -> c6
-            White, f2f3: P f2 -> f3
-            Black, b7b5: P b7 -> b5
-            White, g1e2: N g1 -> e2
-            Black, b8d7: N b8 -> d7
-            White, e3h6: B e3 -> h6
-            Black, g7h6: B g7 -> h6, killing White B
-            White, d2h6: Q d2 -> h6, killing Black B
-            Black, c8b7: B c8 -> b7
-            White, a2a3: P a2 -> a3
-            Black, e7e5: P e7 -> e5
-            White, Castling: K e1->c1, R a1 -> d1
-            Black, d8e7: Q d8 -> e7
-            White, c1b1: K c1 -> b1
-            Black, a7a6: P a7 -> a6
-            White, e2c1: N e2 -> c1
-            Black, Castling: K e8 -> c8, R a8 -> d8
-            White, c1b3: N c1 -> b3
-            Black, e5d4: P e5 -> d4, killing White P
-            White, d1d4: R d1 -> d4, killing Black P
-            Black, c6c5: P c6 -> c5
-            White, d4d1: R d4 -> d1
-            Black, d7b6: N d7 -> b6
-            White, g2g3: P g2 -> g3
-            Black, c8b8: K c8 -> b8
-            White, b3a5: N b3 -> a5
-            Black, b7a8: B b7 -> a8
-            White, f1h3: B f1 -> h3
-            Black, d6d5: P d6 -> d5
-            White, h6f4: Q h6 -> f4
-            Black, b8a7: K b8 -> a7
-            White, h1e1: R h1 -> e1
-            Black, d5d4: P d5 -> d4
-            White, c3d5: N c3 -> d5
-            Black, b6d5: N b6 -> d5, killing White N
-            White, e4d5: P e4 -> d5, killing Black N
-            Black, e7d6: Q e7 -> d6
-            White, d1d4: R d1 -> d4, killing Black P
-            Black, c5d4: P c5 -> d4, killing White R
-            White, e1e7: R e1 -> e7, check
-            Black, a7b6: K a7 -> b6, escape check
-            White, f4d4: Q f4 -> d4, killing Black P and check
-            Black, b6a5: K b6 -> a5, killing white N and escape check
-            White, b3b4: P b3 -> b4, check
-            Black, a5a4: K a5 -> a4, escape check
-            White, d4c3: Q d4 -> c3
-            Black, d6d5: Q d6 -> d5, killing White P
-            White, e7a7: R e7 -> a7
-            Black, a8b7: B a8 -> b7
-            White, a7b7: R a7 -> b7, killing Black B
-            Black, d5c4: Q d5 -> c4
-            White, c3f6: Q c3 -> f6, killing Black N
-            Black, a4a3: K a4 -> a3, killing White P
-            White, f6a6: Q f6 -> a6, killing Black P and check
-            Black, a3b4: K a3 -> b4, killing White P and escape check
-            White, c2c3: P c2 -> c3, check
-            Black, b4c3: K b4 -> c4, killing White P and escape check
-            White, a6a1: Q a6 -> a1, check
-            Black, c3d2: K c3 -> d2, escape check
-            White, a1b2: Q a1 -> b2, check
-            Black, d2d1: K d2 -> d1, escape check
-            White, h3f1: B h3 -> f1, threatening Black Q
-            Black, d8d2: R d8 -> d2, threatening White Q
-            White, b7d7: R b7 -> d7, threatening Black R
-            Black, d2d7: R d2 -> d7, killing White R
-            White, f1c4: B f1 -> c4, killing Black Q
-            Black, b5c4: P b5 -> c4, killing White B
-            White, b2h8: Q b2 -> h8, killing Black R
-            Black, d7d3: R d7 -> d3
-            White, h8a8: Q h8 -> a8
-            Black, c4c3: P c4 -> c3
-            White, a8a4: Q a8 -> a4, check
-            Black, d1e1: K d1 -> e1, escape check
-            White, f3f4: P f3 -> f4
-            Black, f7f5: P f7 -> f5
-            White, b1c1: K b1 -> c1
-            Black, d3d2: R d3 -> d2
-            White, a4a7: Q a4 -> a7
-            Black, d2d1: R d2 -> d1, check
-            White, c1c2: K c1 -> c2, escape check
-            Black, g6g5: P g6 -> g5
-            White, a7g1: Q a7 -> g1 checkmate and threatening to kill Black R,  winning!!!
-
-
-            Game 2.
-            White, d2d4: P
-            Black, d7d5: P
-            White, c2c4: P
-            Black, c7c6: P
-            White, g1f3: N
-            Black, g8f6: N
-            White, b1c3: N
-            Black, e7e6: P
-            White, e2d3: P
-            Black, b8d7: N
-            White, f1d3: B
-            Black, d5c4: P, killing White P
-            White, d3c4: B, killing Black P
-            Black, b7b5: P
-            White, c4d3: B
-            Black, f8d6: B
-            White, Castling: K e1g1, R h1f1
-            Black, Castling: K e8g8, R h8f8
-            White, d1c2: Q
-            Black, c8b7: B
-            White, a2a3: P
-            Black, a8c8: R
-            White, f3g5: N
-            Black, c6c5: P
-            White, g5h7: N, killing Black P
-            Black, f6g4: N
-            White, f2f4: P
-            Black, c5d4: P, killing White P
-            White, e3d4: P, killing Black P
-            Black, d6c5: B
-            White, d3e2: B
-            Black, d7e5: N
-            White, e2g4: B
-            Black, c5d4: B, killing White P and check
-            White, g1h1: K, escape check
-            Black, e5g4: N, killing White B
-            White, h7f8: N, killing Black R
-            Black, f7f5: P
-            White, f8g6: P
-            Black, d8f6: Q
-            White, h2h3: P
-            Black, f6g6: Q, killing White N
-            White, c2e2: Q
-            Black, g6h5: Q
-            White, e2d3: Q
-            Black, d4e3: B, winning (can you figure out why White is deemed to loose)
-
-             Game 3
-            White, e2e4: P
-            Black, c7c5: P
-            White, g1f3: N
-            Black, e7e6: P
-            White, d2d4: P
-            Black, c5d4: P, killing White P
-            White, f3d4: N, killing Black P
-            Black, b8c6: N, threatening White N
-            White, d4b5: N
-            Black, d7d6: P
-            White, c2c4: P
-            Black, g8f6: N
-            White, b1c3: N
-            Black, a7a6: P, threatening White N
-            White, b5a3: N
-            Black, d6d5: P
-            White, c4d5: P, killing Black P
-            Black, e6d5: P, killing White P
-            White, e4d5: P, killing Black P and threatening Black N
-            Black, c6b4: N
-            White, f1e2: B
-            Black, f8c5: B
-            White, Castling: K e1g1, R h1f1
-            Black, Castling: K e8g8, R h8f8
-            White, e2f3: B
-            Black, c8f5: B
-            White, c1g5: B
-            Black, f8e8: R
-            White, d1d2: Q
-            Black, b7b5: P
-            White, a1d1: R
-            Black, b4d3: N
-            White, a3b1: N
-            Black, h7h6: P, threatening White B
-            White, g5h4: B
-            Black, b5b4: P, threatening White N
-            White, c3a4: N, threatening Black B
-            Black, c5d6: B
-            White, h4g3: B
-            Black, a8c8: R
-            White, b2b3: P
-            Black, g7g5: P
-            White, g3d6: B, killing Black B
-            Black, d8d6: Q, killing White B
-            White, g2g3: P
-            Black, f6d7: N
-            White, f3g2: B
-            Black, d6f6: Q
-            White, a2a3: P
-            Black, a6a5: P
-            White, a3b4: P, killing Black P
-            Black, a5b4: P, killing White P
-            White, d2a2: Q
-            Black, f5g6: B
-            White, d5d6: P
-            Black, g5g4: P
-            White, a2d2: Q
-            Black, g8g7: K
-            White, f2f3: P
-            Black, f6d6: Q, killing White P
-            White, f3g4: P, killing Black P
-            Black, d6d4: Q, check
-            White, g1h1: K, escaping check
-            Black, d7f6: N
-            White, f1f4: R
-            Black, f6e4: N, threatening White Q
-            White, d2d3: Q, killing Black N
-            Black, e4f2: N, check and threatening White R and Q
-            White, f4f2, R, killing Black N and removing check
-            Black, g6d3, B, killing White Q
-            White, f2d2: R
-            Black, d4e3: Q
-            White, d2d3: R, killing Black B
-            Black, c8c1: R
-            White, a4b2: N
-            Black, e3f2: Q
-            White, b1d2: N
-            Black, c1d1: R, killing White R
-            White, b2d1: N, killing Black R and threatening Black Q
-            Black, e8e1: R, checkmate
-
-            Current board position under Forsyth-Edwards Notation: {board.fen()}.
-            Choose carefully one of the following legal moves: {[move.uci() for move in board.legal_moves]},
-            to maximize the chance of checkmate. Always think two-step ahead before make the actual move.
-            That is, think over how your opponent would move based on your new move,
-            and what would you make the next best move and accordingly the opponent's best next move.
-            Your best move shall be determined by the two-step forward calculation.
-            Warning: If you choose beyond legal moves, you are deemed as loosing the game.
+        # Indicate player color, display board
+        # TODO: figure out 5-character UCI moves (pawn promotion)
+        messages = [
+            {"role": "system", "content": "You are a chess master player."},
+            {"role": "user", "content": f"""You are a chess master.
+You will be given a partially completed game.
+After seeing it, you should choose the next move.
+Use UCI notation, e.g. "e2e4" or "b8c6" or "e7e8q".
+You are the {self.role} player.
+Current board position under Forsyth-Edwards Notation (FEN): {board.fen()}.
+NEVER explain your choice.
             """}
         ]
-
-        short_messages = [
-            {"role": "system", "content": "You are a chess engine. Respond only with a valid UCI move."},
-            {
-                "role": "user",
-                "content": f"""You are playing a chess game as {self.role}.
-                 Current board position (FEN): {board.fen()}
-                 Choose one of the following legal moves: {[move.uci() for move in board.legal_moves]}
-                 Provide your next move in UCI format (e.g., 'e2e4'). Only provide the move."""
-            }
-        ]
-
-        # messages = short_messages
-        messages = long_messages
-
+        print(f"«{messages}»")
         print(f"{board.fen()}")
         print(f"{[move.uci() for move in board.legal_moves]}")
         request_data = {
@@ -352,8 +109,6 @@ class LLMPlayer(Player):
             json=request_data,
             headers={"Content-Type": "application/json"},
         )
-        print(
-            f"---> response.status_code: «{response.status_code}» response.text «{response.text}»")
         if response.status_code == 200:
             chess_move_uci = ""
             response_content = ""
@@ -860,7 +615,7 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["Llama-3.2-3B-Instruct-long_prompt_2"]
+player_ones = ["Llama-3.2-3B-Instruct-v00"]
 player_two_recording_name = "stockfish"
 if __name__ == "__main__":
     for player in player_ones:
