@@ -69,17 +69,26 @@ class LLMPlayer(Player):
     def get_move(self, board: chess.Board, game_state: str, temperature: float
                  ) -> Optional[str]:
         # Indicate player color, display board
-        # TODO: figure out 5-character UCI moves (pawn promotion)
+        user_content = game_state
+        if game_state == "1.":
+            # Llama 3.2 3B has a problem with opening move, response: "You have forgotten to make a move"
+            user_content = "Please make your opening move:\n1."
+
         messages = [
-            {"role": "system", "content": "You are a chess master player."},
-            {"role": "user", "content": f"""You are a chess master.
+            {"role": "system", "content": f"""You are a chess master.
 You will be given a partially completed game.
+You will be prompted with the turn. If the prompt is '1.', it's the opening move.
 After seeing it, you should choose the next move.
 Use standard algebraic notation, e.g. "e4" or "Rdf8" or "R1a3".
 You are the {self.role} player.
-Current board position under Forsyth-Edwards Notation (FEN): {board.fen()}.
-NEVER explain your choice.
-            """}
+NEVER explain your choice."""},
+            {"role": "user", "content": "1."},
+            {"role": "assistant", "content": "e4"},
+            {"role": "user", "content": "1. e4 e5 2."},
+            {"role": "assistant", "content": "Nf3"},
+            {"role": "user", "content": "1. e4 e5 2. Nf3 Nc6 3."},
+            {"role": "assistant", "content": "d4"},
+            {"role": "user", "content": user_content},
         ]
         print(f"«{messages}»")
         print(f"{board.fen()}")
@@ -617,7 +626,7 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["Llama-3.2-3B-Instruct-v01"]
+player_ones = ["Llama-3.2-3B-Instruct-v02"]
 player_two_recording_name = "stockfish"
 if __name__ == "__main__":
     for player in player_ones:
