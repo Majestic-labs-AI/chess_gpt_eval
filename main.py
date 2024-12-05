@@ -175,9 +175,10 @@ class StockfishPlayer(Player):
         else:
             raise OSError("Unsupported operating system")
 
-    def __init__(self, skill_level: int, play_time: float):
+    def __init__(self, skill_level: int, play_time: float, hash: int):
         self._skill_level = skill_level
         self._play_time = play_time
+        self._hash = hash
         # If getting started, you need to run brew install stockfish
         stockfish_path = StockfishPlayer.get_stockfish_path()
         self._engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
@@ -196,7 +197,12 @@ class StockfishPlayer(Player):
             )
 
         else:
-            self._engine.configure({"Skill Level": self._skill_level})
+            self._engine.configure({
+                "Skill Level": self._skill_level,
+                "Hash": self._hash,
+                "Threads": 4,
+                # "NumaPolicy": "System",
+            })
             result = self._engine.play(
                 board, chess.engine.Limit(time=self._play_time))
         if result.move is None:
@@ -626,23 +632,26 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["Llama-3.2-3B-Instruct-v03"]
-player_two_recording_name = "stockfish"
+player_ones = ["stockfish-256MiB"]
+player_two_recording_name = "stockfish-2560MiB"
 if __name__ == "__main__":
     for player in player_ones:
         player_one_recording_name = player
         # play_time starts at 0.05 s (50ms) at lowest setting
-        for skill_level in [1]:
+        # Stockfish ranges 0-20, but we add -2 and -1 for random and depth-of-1-and-time-of-10^(-8)-seconds
+        for skill_level in [20]:
             num_games = 100
             # player_one = GPTPlayer(model=player)
-            player_one = LLMPlayer(l_3B_instruct, role="white")
+            # player_one = LLMPlayer(l_3B_instruct, role="white")
             # player_two = LLMPlayer(l_70B_instruct, role="black")
             # player_one = GPTPlayer(model="gpt-4")
             # player_one = StockfishPlayer(skill_level=-1, play_time=0.1)
             # player_one = NanoGptPlayer(model_name=player_one_recording_name)
             # skill_level -2 is random legal move, -1 is depth-of-1-and-time-of-10^(-8)-seconds
+            player_one = StockfishPlayer(
+                skill_level=skill_level, play_time=2.5, hash=256)
             player_two = StockfishPlayer(
-                skill_level=skill_level, play_time=0.1)
+                skill_level=skill_level, play_time=2.5, hash=2560)
             # player_two = GPTPlayer(model="gpt-4")
             # player_two = GPTPlayer(model="gpt-3.5-turbo-instruct")
 
