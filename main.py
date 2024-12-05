@@ -165,7 +165,7 @@ class StockfishPlayer(Player):
             str: Path to the Stockfish executable based on the operating system.
         """
         if platform.system() == "Linux":
-            return "/usr/games/stockfish"
+            return "/usr/local/bin/stockfish"
         elif platform.system() == "Darwin":  # Darwin is the system name for macOS
             return "stockfish"
         elif platform.system() == "Windows":
@@ -200,7 +200,7 @@ class StockfishPlayer(Player):
             self._engine.configure({
                 "Skill Level": self._skill_level,
                 "Hash": self._hash,
-                "Threads": 4,
+                "Threads": 56,
                 # "NumaPolicy": "System",
             })
             result = self._engine.play(
@@ -632,8 +632,8 @@ if NANOGPT:
     MAX_MOVES = 89  # Due to nanogpt max input length of 1024
 # default recording file. Because we are using list [player_ones], recording_file is overwritten
 recording_file = "logs/determine.csv"
-player_ones = ["stockfish-256MiB"]
-player_two_recording_name = "stockfish-2560MiB"
+player_ones = ["stockfish-32GiB"]
+player_two_recording_name = "stockfish-1GiB"
 if __name__ == "__main__":
     for player in player_ones:
         player_one_recording_name = player
@@ -649,9 +649,9 @@ if __name__ == "__main__":
             # player_one = NanoGptPlayer(model_name=player_one_recording_name)
             # skill_level -2 is random legal move, -1 is depth-of-1-and-time-of-10^(-8)-seconds
             player_one = StockfishPlayer(
-                skill_level=skill_level, play_time=2.5, hash=256)
+                skill_level=skill_level, play_time=5.0, hash=32768)
             player_two = StockfishPlayer(
-                skill_level=skill_level, play_time=2.5, hash=2560)
+                skill_level=skill_level, play_time=5.0, hash=1024)
             # player_two = GPTPlayer(model="gpt-4")
             # player_two = GPTPlayer(model="gpt-3.5-turbo-instruct")
 
